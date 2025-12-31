@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Scooter Dash PRO</title>
+<style>
+body {
+    margin: 0;
+    background: black;
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+canvas {
+    display: block;
+    margin: auto;
+    background: linear-gradient(#0a0a0a, #151515);
+}
+</style>
+</head>
+<body>
+
+<h2>🛴 Scooter Dash PRO – Level <span id="lvl">1</span>/10</h2>
+<p>Space / Click / Touch = Jump • Gravity Zones • Beat Sync</p>
+
+<canvas id="game" width="960" height="450"></canvas>
+
+<script>
+/* ===================== CORE ===================== */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const lvlText = document.getElementById("lvl");
+
+let level = 1;
+let speed = 4;
+let gameOver = false;
+let gravityDir = 1;
+
+/* ===================== AUDIO ===================== */
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+const audioCtx = new AudioContext();
+let oscillator;
+let beatInterval;
+const BPM = 120;
+const beatTime = 60000 / BPM;
+let beatPulse = 0;
+
+function startMusic() {
+    if (oscillator) return;
+
+    oscillator = audioCtx.createOscillator();
+    oscillator.type = "sawtooth";
+    oscillator.frequency.value = 110;
+    oscillator.connect(audioCtx.destination);
+    oscillator.start();
+
+    beatInterval = setInterval(() => {
+        beatPulse = 1;
+        setTimeout(() => beatPulse = 0, 100);
+    }, beatTime);
+}
+
+/* ===================== PLAYER ===================== */
+const player = {
+    x: 150,
+    y: 300,
+    w: 30,
+    h: 40,
+    vy: 0,
+    rot: 0,
+    frame: 0,
+    onGround: false
+};
+
+const gravity = 0.7;
+const jumpForce = -13;
+
+/* ===================== LEVEL DATA ===================== */
+const levels = [
+    { blocks: [300, 500, 700], gravity: [] },
+    { blocks: [250, 430, 600, 780], gravity: [550] },
+    { blocks: [220, 380, 540, 700], gravity: [400, 650] },
+    { blocks: [200, 350, 500, 650, 800], gravity: [300] },
+    { blocks: [180, 330, 480, 630, 780], gravity: [450] },
+    { blocks: [160, 310, 460, 610, 760], gravity: [350, 600] },
+    { blocks: [140, 290, 440, 590, 740], gravity: [500] },
+    { blocks: [120, 270, 420, 570, 720], gravity: [320, 680] },
+    { blocks: [100, 250, 400, 550, 700], gravity: [380, 620] },
+    { blocks: [80, 230, 380, 530, 680], gravity: [300, 500, 650] }
+];
+
+let obstacles = [];
+let gravityZones = [];
+
+/* ===================== LOAD LEVEL ===================== */
+function loadLevel() {
+    obstacles = [];
+    gravityZones = [];
+    speed = 4 + level * 0.8;
+    gameOver = false;
+    gravityDir = 1;
+
+    levels[level - 1].blocks.forEach(x => {
+        obstacles.push({ x, y: 330, w: 30, h: 30 });
+    });
+
+    levels[level - 1].gravity.forEach(x => {
+        gravityZones.push({ x, y: 0, w: 30, h: canvas.height });
+    });
+
+    player.y = 300;
+    player.vy = 0;
+    lvlText.textContent = level;
+}
+loadLevel();
+
+/* ===================== INPUT ===================== */
+function jump() {
+    startMusic();
+    if (!player.onGround || gameOver) return;
+    player.vy = jumpForce * gravityDir;
+    player.onGround = false;
+}
+
+document.addEventListener("keydown", e => {
+    if (e.code === "Space") jump();
+    if (e.code === "KeyR" && gameOver) loadLevel();
+});
+canvas.addEventListener("click", jump);
+
+/* ===================== UPDATE ===================== */
+function update() {
+    if (gameOver) return;
+
+    // Physics
+    player.vy += gravity * gravityDir;
+    player.y += player.vy;
+
+    // Ground / Ceiling
+    if (gravityDir === 1 && player.y >= 300) {
+        player.y = 300;
+        player.vy = 0;
+        player.onGround = true;
+    }
+    if (gravityDir === -1 && player.y <= 50) {
+        player.y = 50;
+        player.vy = 0;
+        player.onGround = true;
+    }
+
+    // Animation
+    player.frame += 0.2;
+    player.rot += 0.05;
+
+    // Move world
+    obstacles.forEach(o => o.x -= speed);
+    gravityZones.forEach(g => g.x -= speed);
+
+    // Collision obstacles
+    obstacles.forEach(o => {
+        if (
+            player.x < o.x + o.w &&
+            player.x + player.w > o.x &&
+            player.y < o.y + o.h &&
+            player.y + player.h > o.y
+        ) gameOver = true;
+    });
+
+    // Gravity switch
+    gravityZones.forEach(g => {
+        if (
+            player.x < g.x + g.w &&
+            player.x + player.w > g.x
+        ) gravityDir *= -1;
+    });
+
+    // Level complete
+    if (obstacles.length && obstacles[obstacles.length - 1].x < -50) {
+        level++;
+        if (level > 10) {
+            alert("🏆 ALL LEVELS CLEARED!");
+            level = 1;
+        }
+        loadLevel();
+    }
+}
+
+/* ===================== DRAW ===================== */
+function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Beat background flash
+    if (beatPulse) {
+        ctx.fillStyle = "rgba(0,255,255,0.1)";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+
+    // Ground & ceiling
+    ctx.fillStyle = "#222";
+    ctx.fillRect(0, 340, canvas.width, 110);
+    ctx.fillRect(0, 0, canvas.width, 20);
+
+    // Gravity zones
+    ctx.fillStyle = "#8844ff";
+    gravityZones.forEach(g => ctx.fillRect(g.x, g.y, g.w, g.h));
+
+    // Obstacles
+    ctx.fillStyle = beatPulse ? "#ff6666" : "#ff3333";
+    obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
+
+    // Player (animated scooter)
+    ctx.save();
+    ctx.translate(player.x + player.w/2, player.y + player.h/2);
+    ctx.rotate(player.rot * 0.05);
+    ctx.fillStyle = "#00ffee";
+    ctx.fillRect(-15, -20, 30, 40);
+    ctx.fillStyle = "white";
+    ctx.fillRect(-25, 18, 50, 6);
+    ctx.restore();
+
+    if (gameOver) {
+        ctx.fillStyle = "white";
+        ctx.font = "32px Arial";
+        ctx.fillText("💀 GAME OVER", 360, 200);
+        ctx.font = "16px Arial";
+        ctx.fillText("Press R to Restart", 390, 230);
+    }
+}
+
+/* ===================== LOOP ===================== */
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+loop();
+</script>
+
+</body>
+</html>
