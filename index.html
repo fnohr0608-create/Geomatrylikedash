@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Scooter Dash – Fixed Edition</title>
+<title>Scooter Dash – Stable Edition</title>
 <style>
 body {
     margin: 0;
@@ -21,7 +21,7 @@ canvas {
 <body>
 
 <h2>🛴 Scooter Dash – Level <span id="lvl">1</span>/10</h2>
-<p>Space / Click = Jump • Gravity Portals</p>
+<p>Space / Click = Jump • Reach the FINISH gate</p>
 
 <canvas id="game" width="1000" height="450"></canvas>
 
@@ -53,22 +53,73 @@ const SPEED = 4;
 
 /* ================= LEVEL DATA ================= */
 const LEVELS = [
-    { length: 3000, platforms: [[0,340,3000,30]], spikes:[600,900,1300], portals:[] },
-    { length: 3200, platforms: [[0,340,500,30],[650,300,250,20],[1100,340,500,30]], spikes:[550,1000], portals:[] },
-    { length: 3500, platforms: [[0,340,400,30],[550,280,200,20],[900,340,400,30]], spikes:[380,820], portals:[700] },
-    { length: 3800, platforms: [[0,340,350,30],[520,260,220,20],[900,340,400,30]], spikes:[300,760], portals:[600] },
-    { length: 4200, platforms: [[0,340,300,30],[480,300,220,20],[820,260,220,20]], spikes:[260,640], portals:[] },
-    { length: 4600, platforms: [[0,340,260,30],[420,260,200,20],[760,340,300,30]], spikes:[220,600,880], portals:[500] },
-    { length: 5000, platforms: [[0,340,220,30],[360,300,200,20],[720,260,200,20]], spikes:[200,580], portals:[450] },
-    { length: 5400, platforms: [[0,340,200,30],[340,260,180,20],[680,300,200,20]], spikes:[180,560,820], portals:[430] },
-    { length: 5800, platforms: [[0,340,180,30],[300,280,180,20],[640,240,180,20]], spikes:[160,520], portals:[400,700] },
-    { length: 6200, platforms: [[0,340,160,30],[280,260,160,20],[600,300,160,20]], spikes:[140,480,760], portals:[360,640] }
+    {
+        finish: 2800,
+        platforms: [[0,340,3000,30]],
+        spikes: [600,900,1300],
+        portals: []
+    },
+    {
+        finish: 3000,
+        platforms: [[0,340,500,30],[650,300,250,20],[1100,340,600,30]],
+        spikes: [550,1000],
+        portals: []
+    },
+    {
+        finish: 3300,
+        platforms: [[0,340,400,30],[550,280,200,20],[900,340,700,30]],
+        spikes: [380,820],
+        portals: [700]
+    },
+    {
+        finish: 3600,
+        platforms: [[0,340,350,30],[520,260,220,20],[900,340,900,30]],
+        spikes: [300,760],
+        portals: [600]
+    },
+    {
+        finish: 3900,
+        platforms: [[0,340,300,30],[480,300,220,20],[820,260,400,20]],
+        spikes: [260,640],
+        portals: []
+    },
+    {
+        finish: 4200,
+        platforms: [[0,340,260,30],[420,260,200,20],[760,340,600,30]],
+        spikes: [220,600,880],
+        portals: [500]
+    },
+    {
+        finish: 4600,
+        platforms: [[0,340,220,30],[360,300,200,20],[720,260,500,20]],
+        spikes: [200,580],
+        portals: [450]
+    },
+    {
+        finish: 5000,
+        platforms: [[0,340,200,30],[340,260,180,20],[680,300,700,20]],
+        spikes: [180,560,820],
+        portals: [430]
+    },
+    {
+        finish: 5400,
+        platforms: [[0,340,180,30],[300,280,180,20],[640,240,600,20]],
+        spikes: [160,520],
+        portals: [400,700]
+    },
+    {
+        finish: 5800,
+        platforms: [[0,340,160,30],[280,260,160,20],[600,300,800,20]],
+        spikes: [140,480,760],
+        portals: [360,640]
+    }
 ];
 
 let platforms = [];
 let spikes = [];
 let portals = [];
 let usedPortals = new Set();
+let finishX = 0;
 
 /* ================= LOAD LEVEL ================= */
 function loadLevel() {
@@ -81,6 +132,7 @@ function loadLevel() {
     platforms = L.platforms.map(p => ({x:p[0],y:p[1],w:p[2],h:p[3]}));
     spikes = L.spikes.map(x => ({x,y:330}));
     portals = L.portals.map(x => ({x,w:20}));
+    finishX = L.finish;
 
     player.y = 280;
     player.vy = 0;
@@ -113,7 +165,7 @@ function update() {
     player.rot += 0.05;
     player.onGround = false;
 
-    // Platforms
+    // Platforms collision (top only)
     platforms.forEach(p => {
         const px = p.x - scrollX;
         if (
@@ -139,7 +191,7 @@ function update() {
         ) gameOver = true;
     });
 
-    // Gravity portals (1x trigger)
+    // Gravity portals (trigger once)
     portals.forEach((p,i) => {
         const px = p.x - scrollX;
         if (
@@ -152,11 +204,15 @@ function update() {
         }
     });
 
-    // Drop / Out of bounds
+    // Drop / out of bounds
     if (player.y > canvas.height || player.y < -100) gameOver = true;
 
-    // Level end
-    if (scrollX >= LEVELS[level-1].length) {
+    // Finish gate collision
+    const fx = finishX - scrollX;
+    if (
+        player.x < fx + 40 &&
+        player.x + player.w > fx
+    ) {
         level++;
         if (level > 10) {
             alert("🏆 Alle 10 Level geschafft!");
@@ -203,6 +259,14 @@ function draw() {
         const px=p.x-scrollX;
         ctx.fillRect(px,0,p.w,450);
     });
+
+    // Finish gate
+    const fx = finishX - scrollX;
+    ctx.fillStyle="#00ff66";
+    ctx.fillRect(fx,240,40,120);
+    ctx.fillStyle="white";
+    ctx.font="14px Arial";
+    ctx.fillText("FINISH", fx - 4, 230);
 
     // Player
     ctx.save();
