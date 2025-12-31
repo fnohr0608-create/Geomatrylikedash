@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Scooter Dash – Skatepark Edition</title>
+<title>Scooter Dash – Fixed Edition</title>
 <style>
 body {
     margin: 0;
@@ -14,33 +14,33 @@ body {
 canvas {
     display: block;
     margin: auto;
-    background: linear-gradient(#0b0b0f, #141420);
+    background: linear-gradient(#0c0c12, #151525);
 }
 </style>
 </head>
 <body>
 
-<h2>🛴 Scooter Dash – Skatepark <span id="lvl">1</span>/10</h2>
-<p>Space / Click / Touch = Jump</p>
+<h2>🛴 Scooter Dash – Level <span id="lvl">1</span>/10</h2>
+<p>Space / Click = Jump • Gravity Portals</p>
 
 <canvas id="game" width="1000" height="450"></canvas>
 
 <script>
-/* ================= CORE ================= */
+/* ================= SETUP ================= */
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const lvlText = document.getElementById("lvl");
 
 let level = 1;
-let speed = 4;
 let gameOver = false;
 let gravityDir = 1;
+let scrollX = 0;
 
 /* ================= PLAYER ================= */
 const player = {
     x: 150,
-    y: 290,
-    w: 26,
+    y: 280,
+    w: 28,
     h: 42,
     vy: 0,
     onGround: false,
@@ -49,34 +49,40 @@ const player = {
 
 const GRAVITY = 0.7;
 const JUMP = -13;
-
-/* ================= WORLD ================= */
-let platforms = [];
-let spikes = [];
-let gravityPortals = [];
+const SPEED = 4;
 
 /* ================= LEVEL DATA ================= */
-const levels = [
-    { platforms:[{x:0,y:340,w:3000,h:30}], spikes:[500], portals:[] },
-    { platforms:[{x:0,y:340,w:500,h:30},{x:650,y:300,w:200,h:20}], spikes:[400,820], portals:[] },
-    { platforms:[{x:0,y:340,w:450,h:30},{x:600,y:280,w:180,h:20}], spikes:[380,760], portals:[520] },
-    { platforms:[{x:0,y:340,w:350,h:30},{x:520,y:260,w:200,h:20}], spikes:[300,700], portals:[450] },
-    { platforms:[{x:0,y:340,w:300,h:30},{x:480,y:300,w:220,h:20},{x:820,y:260,w:180,h:20}], spikes:[260,640], portals:[] },
-    { platforms:[{x:0,y:340,w:260,h:30},{x:420,y:260,w:200,h:20}], spikes:[220,600,760], portals:[350] },
-    { platforms:[{x:0,y:340,w:220,h:30},{x:360,y:300,w:200,h:20},{x:720,y:260,w:180,h:20}], spikes:[200,580], portals:[500] },
-    { platforms:[{x:0,y:340,w:200,h:30},{x:340,y:260,w:180,h:20},{x:680,y:300,w:200,h:20}], spikes:[180,560,820], portals:[430] },
-    { platforms:[{x:0,y:340,w:180,h:30},{x:300,y:280,w:180,h:20},{x:640,y:240,w:180,h:20}], spikes:[160,520], portals:[400,700] },
-    { platforms:[{x:0,y:340,w:160,h:30},{x:280,y:260,w:160,h:20},{x:600,y:300,w:160,h:20}], spikes:[140,480,760], portals:[360,640] }
+const LEVELS = [
+    { length: 3000, platforms: [[0,340,3000,30]], spikes:[600,900,1300], portals:[] },
+    { length: 3200, platforms: [[0,340,500,30],[650,300,250,20],[1100,340,500,30]], spikes:[550,1000], portals:[] },
+    { length: 3500, platforms: [[0,340,400,30],[550,280,200,20],[900,340,400,30]], spikes:[380,820], portals:[700] },
+    { length: 3800, platforms: [[0,340,350,30],[520,260,220,20],[900,340,400,30]], spikes:[300,760], portals:[600] },
+    { length: 4200, platforms: [[0,340,300,30],[480,300,220,20],[820,260,220,20]], spikes:[260,640], portals:[] },
+    { length: 4600, platforms: [[0,340,260,30],[420,260,200,20],[760,340,300,30]], spikes:[220,600,880], portals:[500] },
+    { length: 5000, platforms: [[0,340,220,30],[360,300,200,20],[720,260,200,20]], spikes:[200,580], portals:[450] },
+    { length: 5400, platforms: [[0,340,200,30],[340,260,180,20],[680,300,200,20]], spikes:[180,560,820], portals:[430] },
+    { length: 5800, platforms: [[0,340,180,30],[300,280,180,20],[640,240,180,20]], spikes:[160,520], portals:[400,700] },
+    { length: 6200, platforms: [[0,340,160,30],[280,260,160,20],[600,300,160,20]], spikes:[140,480,760], portals:[360,640] }
 ];
 
+let platforms = [];
+let spikes = [];
+let portals = [];
+let usedPortals = new Set();
+
+/* ================= LOAD LEVEL ================= */
 function loadLevel() {
-    platforms = JSON.parse(JSON.stringify(levels[level-1].platforms));
-    spikes = levels[level-1].spikes.map(x => ({x, y:330}));
-    gravityPortals = levels[level-1].portals.map(x => ({x, y:0, w:20, h:450}));
-    speed = 4 + level * 0.6;
+    const L = LEVELS[level - 1];
+    scrollX = 0;
     gravityDir = 1;
+    usedPortals.clear();
     gameOver = false;
-    player.y = 290;
+
+    platforms = L.platforms.map(p => ({x:p[0],y:p[1],w:p[2],h:p[3]}));
+    spikes = L.spikes.map(x => ({x,y:330}));
+    portals = L.portals.map(x => ({x,w:20}));
+
+    player.y = 280;
     player.vy = 0;
     lvlText.textContent = level;
 }
@@ -99,19 +105,23 @@ canvas.addEventListener("click", jump);
 function update() {
     if (gameOver) return;
 
+    scrollX += SPEED;
+
+    // Physics
     player.vy += GRAVITY * gravityDir;
     player.y += player.vy;
     player.rot += 0.05;
-
     player.onGround = false;
 
+    // Platforms
     platforms.forEach(p => {
-        p.x -= speed;
+        const px = p.x - scrollX;
         if (
-            player.x < p.x + p.w &&
-            player.x + player.w > p.x &&
-            player.y + player.h * gravityDir >= p.y &&
-            player.y + player.h * gravityDir <= p.y + 15
+            player.x < px + p.w &&
+            player.x + player.w > px &&
+            gravityDir === 1 &&
+            player.y + player.h >= p.y &&
+            player.y + player.h <= p.y + 15
         ) {
             player.y = p.y - player.h;
             player.vy = 0;
@@ -119,27 +129,37 @@ function update() {
         }
     });
 
-    spikes.forEach(s => s.x -= speed);
-    gravityPortals.forEach(g => g.x -= speed);
-
+    // Spikes
     spikes.forEach(s => {
-        if (player.x < s.x + 30 && player.x + player.w > s.x && player.y + player.h > s.y) {
-            gameOver = true;
-        }
+        const sx = s.x - scrollX;
+        if (
+            player.x < sx + 30 &&
+            player.x + player.w > sx &&
+            player.y + player.h > s.y
+        ) gameOver = true;
     });
 
-    gravityPortals.forEach(g => {
-        if (player.x < g.x + g.w && player.x + player.w > g.x) {
+    // Gravity portals (1x trigger)
+    portals.forEach((p,i) => {
+        const px = p.x - scrollX;
+        if (
+            player.x < px + p.w &&
+            player.x + player.w > px &&
+            !usedPortals.has(i)
+        ) {
             gravityDir *= -1;
+            usedPortals.add(i);
         }
     });
 
+    // Drop / Out of bounds
     if (player.y > canvas.height || player.y < -100) gameOver = true;
 
-    if (platforms[platforms.length-1].x + platforms[platforms.length-1].w < -50) {
+    // Level end
+    if (scrollX >= LEVELS[level-1].length) {
         level++;
         if (level > 10) {
-            alert("🏁 Alle Level geschafft!");
+            alert("🏆 Alle 10 Level geschafft!");
             level = 1;
         }
         loadLevel();
@@ -150,51 +170,56 @@ function update() {
 function draw() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    // Background layers
+    // Background grid
     ctx.fillStyle = "#111";
-    for(let i=0;i<canvas.width;i+=120){
-        ctx.fillRect((i - speed*0.3)%canvas.width,0,60,450);
+    for(let i=0;i<canvas.width;i+=80){
+        ctx.fillRect(i,0,40,450);
     }
 
     // Platforms
     ctx.fillStyle = "#2a2a2a";
     platforms.forEach(p => {
-        ctx.fillRect(p.x,p.y,p.w,p.h);
-        ctx.fillStyle = "#444";
-        ctx.fillRect(p.x,p.y,p.w,4);
-        ctx.fillStyle = "#2a2a2a";
+        const px = p.x - scrollX;
+        ctx.fillRect(px,p.y,p.w,p.h);
+        ctx.fillStyle="#444";
+        ctx.fillRect(px,p.y,p.w,4);
+        ctx.fillStyle="#2a2a2a";
     });
 
     // Spikes
-    ctx.fillStyle = "#ff3355";
+    ctx.fillStyle="#ff3355";
     spikes.forEach(s => {
+        const sx = s.x - scrollX;
         ctx.beginPath();
-        ctx.moveTo(s.x, s.y+30);
-        ctx.lineTo(s.x+15, s.y);
-        ctx.lineTo(s.x+30, s.y+30);
+        ctx.moveTo(sx,s.y+30);
+        ctx.lineTo(sx+15,s.y);
+        ctx.lineTo(sx+30,s.y+30);
         ctx.fill();
     });
 
     // Gravity portals
-    ctx.fillStyle = "rgba(150,80,255,0.4)";
-    gravityPortals.forEach(g => ctx.fillRect(g.x,g.y,g.w,g.h));
+    ctx.fillStyle="rgba(150,80,255,0.4)";
+    portals.forEach(p=>{
+        const px=p.x-scrollX;
+        ctx.fillRect(px,0,p.w,450);
+    });
 
-    // Player (Scooter Rider)
+    // Player
     ctx.save();
-    ctx.translate(player.x+player.w/2, player.y+player.h/2);
+    ctx.translate(player.x+player.w/2,player.y+player.h/2);
     ctx.rotate(player.rot);
-    ctx.fillStyle = "#00ffd0";
-    ctx.fillRect(-13,-20,26,40);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(-25,20,50,5);
+    ctx.fillStyle="#00ffd0";
+    ctx.fillRect(-14,-21,28,42);
+    ctx.fillStyle="#fff";
+    ctx.fillRect(-24,20,48,5);
     ctx.restore();
 
     if (gameOver) {
-        ctx.fillStyle = "white";
-        ctx.font = "32px Arial";
-        ctx.fillText("💀 GAME OVER", 400, 200);
-        ctx.font = "16px Arial";
-        ctx.fillText("Press R to Restart", 420, 230);
+        ctx.fillStyle="white";
+        ctx.font="32px Arial";
+        ctx.fillText("💀 GAME OVER",390,200);
+        ctx.font="16px Arial";
+        ctx.fillText("Press R to Restart",415,230);
     }
 }
 
